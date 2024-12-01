@@ -140,7 +140,7 @@ contract SmartBox {
         return allPackages;
     }
 
-    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, string cid, string name, string description);
+    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, address customer, uint256 funds, string cid, string name, string description);
     event PackageDeliveredOnSui(uint256 indexed packageId);
 
     function createPackage(string memory metadata, string memory cid, address customer, uint256 funds, string memory name, string memory description) external onlyDeliveryAgent {
@@ -157,11 +157,11 @@ contract SmartBox {
         });
 
         emit PackageCreated(nextPackageId, customer);
-        emit PackageCreatedOnSui(nextPackageId, metadata, cid, name, description); // Notify Sui
+        emit PackageCreatedOnSui(nextPackageId, metadata, customer, funds, cid, name, description); // Notify Sui
         nextPackageId++;
     }
 
-    function markAsDelivered(uint256 packageId, string memory cid) external onlyDeliveryAgent {
+    function markAsDelivered(uint256 packageId) external onlyDeliveryAgent {
         packages[packageId].delivered = true;
 
         emit PackageDelivered(packageId, msg.sender);

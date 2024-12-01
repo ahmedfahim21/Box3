@@ -1,15 +1,18 @@
 const { ethers } = require("ethers");
-require('dotenv').config();  // Ensure environment variables are loaded
+const { exec } = require('child_process');
+require('dotenv').config();
 
 // Base Sepolia configuration
 const baseSepoliaConfig = {
-  url: "https://sepolia.base.org",  // Correct RPC URL for Base Sepolia
-  accounts: [process.env.SEPOLIA_PRIVATE_KEY],  // Same private key as Sepolia
-  chainId: 84532,  // Base Sepolia chain ID
+  url: "https://sepolia.base.org",
+  accounts: [process.env.SEPOLIA_PRIVATE_KEY],
+  chainId: 84532,
 };
 
-// Initialize provider
 const provider = new ethers.providers.JsonRpcProvider(baseSepoliaConfig.url);
+
+// Initialize wallet with private key
+const wallet = new ethers.Wallet(process.env.SEPOLIA_PRIVATE_KEY, provider);
 
 const contractABI = [
   {
@@ -82,6 +85,18 @@ const contractABI = [
         "internalType": "string",
         "name": "metadata",
         "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "customer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "funds",
+        "type": "uint256"
       },
       {
         "indexed": false,
@@ -344,11 +359,6 @@ const contractABI = [
         "internalType": "uint256",
         "name": "packageId",
         "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "cid",
-        "type": "string"
       }
     ],
     "name": "markAsDelivered",
@@ -578,39 +588,105 @@ const contractABI = [
   }
 ];
 
-// Ensure synchronizeWithSui function is defined
-async function synchronizeWithSui({ packageId, customer }) {
-  console.log("Synchronizing with Sui...");
-  console.log("Package ID:", packageId);
-  console.log("Customer Address:", customer);
-  // Add your synchronization logic here
-  // For example, make an API call to Sui network
-  // ...
-  console.log("Synchronization with Sui completed.");
+const ethereumContractAddress = "0xF8f8a3fE22b3D06C99bF669A6Dc60D3a370deAa8";
+const suiPackageId = "0x0c87abd602514a53138cb31f9551c24d1027c8b40be4398f6e23c8bba7238055";
+
+// Initialize contract instance
+const contract = new ethers.Contract(ethereumContractAddress, contractABI, wallet);
+
+// Helper function to convert string to hex bytes
+function stringToHex(str) {
+  return Buffer.from(str).toString('hex');
 }
 
-// Error handling for provider
-provider.on("error", (error) => {
-  console.error("WebSocket Provider Error:", error);
-});
+// Helper function to format Sui address
+function formatSuiAddress(address) {
+  return '0x' + address.replace('0x', '').padStart(40, '0');
+}
 
-const ethereumContractAddress = "0xa22a01a43696dcB994cbE13291f1fe30F38b8617"; // Update this if necessary
+async function synchronizeWithSui(eventDetails) {
+  try {
+    const { packageId, metadata, cid, customer, name, description } = eventDetails;
+    
+    const metadataHex = stringToHex(metadata);
+    const cidHex = stringToHex(cid);
+    const nameHex = stringToHex(name);
+    const descriptionHex = stringToHex(description);
+    if (!customer) {
+      throw new Error("Customer address is undefined");
+    }
+    const customerAddress = formatSuiAddress(customer);
 
-// Connect to Ethereum Contract
-const contract = new ethers.Contract(ethereumContractAddress, contractABI, provider);
+    // console.log(`Synchronizing with Sui...
+    //   Package ID: ${packageId}
+    //   Customer: ${customerAddress}
+    //   Metadata: ${metadataHex}
+    //   CID: ${cidHex}
+    //   Name: ${nameHex}
+    //   Description: ${descriptionHex}`);
 
-// Error handling for contract events
-contract.on("error", (error) => {
-  console.error("Contract Event Error:", error);
-});
+    // Modify the command construction to properly escape and format the type arguments
+    const command = `sui client call \
+      --package ${suiPackageId} \
+      --module smartbox \
+      --function create_package \
+      --type-args ${suiPackageId}::smartbox::Package \
+      --args \
+        ${metadataHex} \
+        ${cidHex} \
+        ${customerAddress} \
+        ${nameHex} \
+        ${descriptionHex} \
+      --gas-budget 1000000 \
+      --json`;
+
+    console.log("Executing command:", command);
+
+    return new Promise((resolve, reject) => {
+      exec(command, { maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+        // if (stderr) {
+        //   console.error("Sui CLI stderr:", stderr);
+        // }
+        
+        // if (error) {
+        //   // Handle specific error cases
+        //   if (stderr.includes("version mismatch")) {
+        //     console.warn("Version mismatch warning detected, continuing execution");
+        //     try {
+        //       const result = JSON.parse(stdout);
+        //       console.log("Sui CLI output:", result);
+        //       resolve(result);
+        //       return;
+        //     } catch (e) {
+        //       console.error("Failed to parse Sui CLI output:", e);
+        //     }
+        //   }
+        //   console.error("Error executing Sui CLI command:", error);
+        //   reject(error);
+        //   return;
+        // }
+
+        try {
+          const result = JSON.parse(stdout);
+          console.log("Sui CLI output:", result);
+          resolve(result);
+        } catch (e) {
+          console.error("Failed to parse Sui CLI output:", e);
+          reject(e);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Error in synchronizeWithSui:", error);
+    throw error;
+  }
+}
 
 async function initializeEventListeners() {
   try {
-    // Verify network
     const network = await provider.getNetwork();
     console.log("Connected to network:", network);
 
-    // Verify contract connection
     console.log("Verifying contract at address:", ethereumContractAddress);
     const code = await provider.getCode(ethereumContractAddress);
     if (code === "0x") {
@@ -618,17 +694,36 @@ async function initializeEventListeners() {
     }
     console.log("Contract connected at address:", ethereumContractAddress);
 
-    // Listen for PackageCreated events
-    contract.on("PackageCreated", async (packageId, customer, event) => {
-      console.log("PackageCreated event detected:");
-      console.log("Package ID:", packageId.toString());
-      console.log("Customer Address:", customer);
-      console.log("Transaction Hash:", event.transactionHash);
-
+    contract.on("PackageCreatedOnSui", async (...args) => {
+      console.log("PackageCreatedOnSui event detected!");
       try {
-        await synchronizeWithSui({ packageId: packageId.toString(), customer });
+        // console.log("Raw event args:", args);
+        const [packageId, metadata, customer, funds, cid, name, description] = args;
+        // const customer = event?.args?.customer || event?.customer;
+
+        // console.log("Extracted event data:", {
+        //   packageId: packageId.toString(),
+        //   metadata,
+        //   cid,
+        //   name,
+        //   description,
+        //   customer,
+        //   funds
+        // });
+
+        const eventDetails = {
+          packageId: packageId.toString(),
+          metadata,
+          cid,
+          name,
+          description,
+          customer, 
+          funds
+        };
+        
+        await synchronizeWithSui(eventDetails);
       } catch (error) {
-        console.error("Synchronization Error:", error);
+        console.error("Error processing PackageCreatedOnSui event:", error);
       }
     });
 
@@ -638,15 +733,21 @@ async function initializeEventListeners() {
   }
 }
 
+// Error handling
+provider.on("error", (error) => {
+  console.error("WebSocket Provider Error:", error);
+});
+
+contract.on("error", (error) => {
+  console.error("Contract Event Error:", error);
+});
+
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('Shutting down gracefully...');
   provider.removeAllListeners();
-  provider.destroy();
   process.exit(0);
 });
 
-// Initial setup
 initializeEventListeners();
-
 console.log("Cross-chain Synchronization Script is running...");
