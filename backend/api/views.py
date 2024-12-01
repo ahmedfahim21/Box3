@@ -2,7 +2,7 @@ from rest_framework.response import Response
 from .serializers import TagSerializer
 from rest_framework.decorators import (api_view)
 from .models import Tag
-from .utils import createRandomKey, readTag, writeTag
+from .utils import createRandomKey, readTag, writeTag, servo
 from rest_framework import status
 
 @api_view(['POST'])
@@ -35,3 +35,8 @@ def get_tag(request):
         return Response({"error": "Tag not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def actuate_servo(request):
+    servo(10)
+    return Response({"message": "success"}, status=status.HTTP_200_OK)
