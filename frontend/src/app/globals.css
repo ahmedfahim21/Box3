@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --primary: rgb(185 28 28);
+  --primary: rgb(213, 52, 52);
   --primary-dark: rgb(148, 54, 54);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --primary: rgb(185 28 28);
+    --primary: rgb(213, 52, 52);
     --primary-dark: rgb(148, 54, 54);
   }
 }

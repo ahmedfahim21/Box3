@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useSession, signOut } from "next-auth/react";
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Package, Truck, User } from 'lucide-react'
-
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -19,6 +19,16 @@ import {
 import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { toast } from '../../hooks/use-toast'
+
+import { LoginButton } from "@/components/LoginButton";
+import { useOkto, OktoContextType, BuildType } from "okto-sdk-react";
+import GetButton from "@/components/GetButton";
+import { useAppContext } from "@/components/AppContext";
+import { EmailOTPVerification } from "@/components/EmailOTPVerification";
+import AuthButton from '@/components/AuthButton';
+
+// const CONTRACT_ABI = SmartBoxABI;
+// const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -37,6 +47,95 @@ const formSchema = z.object({
 
 export default function OnboardingForm() {
   const [isLoading, setIsLoading] = useState(false)
+  const { data: session } = useSession();
+  const { apiKey, setApiKey, buildType, setBuildType } = useAppContext();
+  const {
+    isLoggedIn,
+    authenticate,
+    authenticateWithUserId,
+    logOut,
+    getPortfolio,
+    transferTokens,
+    getWallets,
+    createWallet,
+    getSupportedNetworks,
+    getSupportedTokens,
+    getUserDetails,
+    orderHistory,
+    getNftOrderDetails,
+    showWidgetModal,
+    showOnboardingModal,
+    getRawTransactionStatus,
+    transferTokensWithJobStatus,
+    transferNft,
+    transferNftWithJobStatus,
+    executeRawTransaction,
+    executeRawTransactionWithJobStatus,
+    setTheme,
+    getTheme,
+  } = useOkto() as OktoContextType;
+  const idToken = useMemo(() => (session ? session.id_token : null), [session]);
+
+  useEffect(() => {
+    setApiKey(process.env.NEXT_PUBLIC_OKTA_API_KEY);
+    setBuildType(BuildType.SANDBOX)
+    if (isLoggedIn) {
+      console.log("Okto is authenticated");
+    }
+    // if (window.ethereum) {
+    //   const browserProvider = new ethers.BrowserProvider(window.ethereum);
+    //   setProvider(browserProvider);
+
+    //   const contractInstance = new ethers.Contract(
+    //     CONTRACT_ADDRESS,
+    //     CONTRACT_ABI,
+    //     browserProvider
+    //   );
+    //   setContract(contractInstance);
+    // } else {
+    //   console.error("MetaMask is not installed!");
+    // }
+  }, [isLoggedIn]);
+
+//   const connectWallet = async () => {
+//     if (!provider) return;
+
+//     try {
+//       const accounts = await provider.send("eth_requestAccounts", []);
+//       setAccount(accounts[0]);
+//       console.log("Connected account:", accounts[0]);
+//     } catch (error) {
+//       console.error("Error connecting to MetaMask:", error);
+//     }
+//   };
+
+
+
+  async function handleAuthenticate(): Promise<any> {
+    if (!idToken) {
+      return { result: false, error: "No google login" };
+    }
+    return new Promise((resolve) => {
+      authenticate(idToken, (result: any, error: any) => {
+        if (result) {
+          console.log("Authentication successful");
+          resolve({ result: true });
+        } else if (error) {
+          console.error("Authentication error:", error);
+          resolve({ result: false, error });
+        }
+      });
+    });
+  }
+
+  async function handleLogout() {
+    try {
+      logOut();
+      return { result: "logout success" };
+    } catch (error) {
+      return { result: "logout failed" };
+    }
+  }
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,38 +170,13 @@ export default function OnboardingForm() {
         </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Enter your full name as it appears on official documents.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="john@example.com" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    We'll use this email for important notifications.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
+                  <div className="w-full max-w-lg">
+        <EmailOTPVerification
+          onVerificationSuccess={() => console.log('Verification successful')}
+          onVerificationError={(error) => console.error('Verification failed:', error)}
+        />
+      </div>
             <FormField
               control={form.control}
               name="role"
@@ -160,6 +234,66 @@ export default function OnboardingForm() {
             </Button>
           </form>
         </Form>
+        <div className="flex items-center gap-2 bg-white rounded-lg px-4 py-2 shadow-sm">
+        <div className={`w-3 h-3 rounded-full ${isLoggedIn ? 'bg-green-500' : 'bg-red-500'}`}></div>
+        <span className="text-sm font-medium">
+          Status: {isLoggedIn ? 'Logged In' : 'Not Logged In'}
+        </span>
+      </div>
+
+      <div className="space-y-6 w-full max-w-lg">
+        <div className="space-y-4">
+          {apiKey}
+        </div>
+        {/* <div className="space-y-4">
+          <label className="text-black font-semibold">Build Type:</label>
+          <select
+            value={buildType}
+            onChange={(e) => setBuildType(e.target.value)}
+            className="w-full px-4 py-2 rounded bg-gray-200 text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value={BuildType.SANDBOX}>Sandbox</option>
+            <option value={BuildType.STAGING}>Staging</option>
+            <option value={BuildType.PRODUCTION}>Production</option>
+          </select>
+        </div> */}
+      </div>
+
+
+
+      <div className="grid grid-cols-2 gap-4 w-full max-w-lg mt-8">
+
+        {/* <GetButton title="Okto Authenticate" apiFn={handleAuthenticate} />
+        <AuthButton authenticateWithUserId={authenticateWithUserId} /> */}
+        <GetButton title="Okto Log out" apiFn={handleLogout} />
+        <GetButton title="getPortfolio" apiFn={getPortfolio} />
+        <GetButton title="getSupportedNetworks" apiFn={getSupportedNetworks} />
+        <GetButton title="getSupportedTokens" apiFn={getSupportedTokens} />
+        <GetButton title="getUserDetails" apiFn={getUserDetails} />
+        <GetButton title="getWallets" apiFn={getWallets} />
+        <GetButton title="createWallet" apiFn={createWallet} />
+        <GetButton title="orderHistory" apiFn={() => orderHistory({})} />
+        {/* <GetButton
+          title="getNftOrderDetails"
+          apiFn={() => getNftOrderDetails({})}
+        /> */}
+        <button
+          className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onClick={() => {
+            showWidgetModal();
+          }}
+        >
+          Show Modal
+        </button>
+        {/* <button
+          className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onClick={() => {
+            showOnboardingModal(AuthType.GAUTH, "Test App");
+          }}
+        >
+          Show Onboarding Modal
+        </button> */}
+      </div>
       </div>
     </div>
   )
