@@ -2,3 +2,10 @@ Django>=4.0
 djangorestframework
 python-dotenv
 web3>=5.0.0
+asgiref==3.8.1
+lgpio==0.2.2.0
+mfrc522==0.0.7
+rpi-lgpio==0.6
+RPi.GPIO==0.7.1
+spidev==3.6
+sqlparse==0.5.1
