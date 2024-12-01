@@ -1,12 +1,26 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Truck, CheckCircle, AlertCircle } from 'lucide-react'
+import { Package, Truck, CheckCircle, AlertCircle, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useSession } from 'next-auth/react'
+import { OktoContextType, useOkto } from 'okto-sdk-react'
 
 // Mock data to simulate fetching from the blockchain
 const mockPackages = [
@@ -18,6 +32,10 @@ const mockPackages = [
 export default function CustomerDashboard() {
   const [packages, setPackages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const { data: session } = useSession();
+  const {
+    isLoggedIn,
+} = useOkto() as OktoContextType;
 
   useEffect(() => {
     // Simulating API call to fetch packages from the blockchain
@@ -26,9 +44,12 @@ export default function CustomerDashboard() {
       setPackages(mockPackages)
       setIsLoading(false)
     }
+    if (isLoggedIn) {
+      console.log("Okto is authenticated");
+    }
 
     fetchPackages()
-  }, [])
+  }, [isLoggedIn])
 
   const getStatusIcon = (delivered: boolean, fundsReleased: boolean) => {
     if (fundsReleased) return <CheckCircle className="h-5 w-5 text-green-500" />
@@ -51,9 +72,31 @@ export default function CustomerDashboard() {
     ))
   }
 
+  const handleCreateOrder = async (orderData) => {
+    // Here you would call the smart contract function to create a new order
+    console.log('Creating new order:', orderData)
+    // For demo purposes, we'll just add a new package to the local state
+    const newPackage = {
+      id: packages.length + 1,
+      cid: 'Qm...new',
+      metadata: orderData.contents,
+      delivered: false,
+      fundsReleased: false,
+      funds: parseFloat(orderData.value)
+    }
+    setPackages([...packages, newPackage])
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">My Packages</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">My Packages</h1>
+        <div className={`w-3 h-3 rounded-full ${isLoggedIn ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-sm font-medium">
+                            Status: {isLoggedIn ? 'Logged In' : 'Not Logged In'}
+                        </span>
+        <CreateOrderDialog onCreateOrder={handleCreateOrder} />
+      </div>
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -109,6 +152,76 @@ export default function CustomerDashboard() {
         </div>
       )}
     </div>
+  )
+}
+
+function CreateOrderDialog({ onCreateOrder }) {
+  const [orderData, setOrderData] = useState({
+    contents: '',
+    value: '',
+  })
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setOrderData(prevData => ({ ...prevData, [name]: value }))
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onCreateOrder(orderData)
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Order
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Create New Order</DialogTitle>
+          <DialogDescription>
+            Create a new order for package delivery. Please provide the package contents and value.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="contents" className="text-right">
+                Contents
+              </Label>
+              <Textarea
+                id="contents"
+                name="contents"
+                value={orderData.contents}
+                onChange={handleInputChange}
+                className="col-span-3"
+                placeholder="Describe the package contents"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="value" className="text-right">
+                Value ($)
+              </Label>
+              <Input
+                id="value"
+                name="value"
+                type="number"
+                value={orderData.value}
+                onChange={handleInputChange}
+                className="col-span-3"
+                placeholder="Enter package value"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit">Create Order</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
