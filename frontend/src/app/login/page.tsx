@@ -50,12 +50,11 @@ export default function OnboardingForm() {
     const [walletsExist, setWalletsExist] = useState(false);
     const [provider, setProvider] = useState<any>();
     const [signer, setSigner] = useState<any>();
-    const [contract, setContract] = useState<any>();
     const router = useRouter()
     // const [account, setAccount] = useState<any>();
 
     const { data: session } = useSession();
-    const { apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole } = useAppContext();
+    const { apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole, contract, setContract } = useAppContext();
     const {
         isLoggedIn,
         authenticate,
@@ -241,44 +240,7 @@ export default function OnboardingForm() {
     }
   };
 
-  const readRFID = async () => {
-    try {
-      const response = await axios.get(`http://192.168.167.131:8000/api/get_tag/`);
-      console.log(response.data);
-      // {id: 7, tag_id: 'JKVDWOAG', is_active: true, created_at: '2024-12-01T14:26:53.122016Z', updated_at: '2024-12-01T14:26:53.122064Z'}
-    } catch (error) {
-      console.log(error);
-      alert('Error generating key');
-    }
-  };
 
-  const verifyPackage = async () => {
-    try {
-      const response = await axios.post(
-        'http://192.168.167.131:8000/api/verify_package/',
-        {
-          product_description: "A brown rugby ball.",
-          image_url: "https://aqua-legislative-cod-798.mypinata.cloud/ipfs/QmaWvn63nPwCjndRz1vnmFrymvmqJcpRZsBmw9DegVmeSs"
-        }
-      );
-      console.log(response.data);
-      // {isValidPackage: true, reason: 'Although the package description does not directly…e packaging appears to be related to the product.'}
-    } catch (error) {
-      console.log(error);
-      alert('Error generating key');
-    }
-  };
-
-  const actuateServo = async () => {
-    try {
-      const response = await axios.get(`http://192.168.167.131:8000/api/servo/`);
-      console.log(response.data);
-      // {message: success} - 200
-    } catch (error) {
-      console.log(error);
-      alert('Error generating key');
-    }
-  };
 
     return (
         <div className="container mx-auto px-6 py-10 bg-gray-100 dark:bg-gray-900">

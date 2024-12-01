@@ -13,6 +13,7 @@ export const AppContextProvider = ({ children }) => {
   const [buildType, setBuildType] = useState(BuildType.SANDBOX);
   const [account, setAccount] = useState("");
   const [role, setRole] = useState(1);
+  const [contract, setContract] = useState("");
   const { data: session } = useSession();
 
   async function handleGAuthCb() {
@@ -24,7 +25,7 @@ export const AppContextProvider = ({ children }) => {
   }
 
   return (
-    <AppContext.Provider value={{ apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole }}>
+    <AppContext.Provider value={{ apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole, contract, setContract }}>
       <OktoProvider apiKey={apiKey} buildType={buildType} gAuthCb={handleGAuthCb}>
         {children}
       </OktoProvider>
