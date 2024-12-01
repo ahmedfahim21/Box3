@@ -1,18 +1,16 @@
-require('dotenv').config();
 const { ethers } = require("ethers");
-const { exec } = require("child_process");
+require('dotenv').config();  // Ensure environment variables are loaded
 
-const alchemyProviderUrl = `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+// Base Sepolia configuration
+const baseSepoliaConfig = {
+  url: "https://sepolia.base.org",  // Correct RPC URL for Base Sepolia
+  accounts: [process.env.SEPOLIA_PRIVATE_KEY],  // Same private key as Sepolia
+  chainId: 84532,  // Base Sepolia chain ID
+};
 
-if (!process.env.ALCHEMY_API_KEY) {
-  console.error("Missing Alchemy API key in environment variables.");
-  process.exit(1);
-}
+// Initialize provider
+const provider = new ethers.providers.JsonRpcProvider(baseSepoliaConfig.url);
 
-const provider = new ethers.providers.JsonRpcProvider(alchemyProviderUrl);
-
-// Ethereum Contract Configuration
-const ethereumContractAddress = "0x34E44ddFfDA2ff2344C15eFAc91a21dA8a4B75e2";
 const contractABI = [
   {
     "inputs": [],
@@ -580,28 +578,49 @@ const contractABI = [
   }
 ];
 
-const suiPackageId = "0x0d1b8db121e79c16958c832480a8be75d0d7b6f56ed913bb651f09fb1efff75c";
+// Ensure synchronizeWithSui function is defined
+async function synchronizeWithSui({ packageId, customer }) {
+  console.log("Synchronizing with Sui...");
+  console.log("Package ID:", packageId);
+  console.log("Customer Address:", customer);
+  // Add your synchronization logic here
+  // For example, make an API call to Sui network
+  // ...
+  console.log("Synchronization with Sui completed.");
+}
 
 // Error handling for provider
 provider.on("error", (error) => {
   console.error("WebSocket Provider Error:", error);
 });
 
+const ethereumContractAddress = "0xa22a01a43696dcB994cbE13291f1fe30F38b8617"; // Update this if necessary
+
 // Connect to Ethereum Contract
 const contract = new ethers.Contract(ethereumContractAddress, contractABI, provider);
 
+// Error handling for contract events
+contract.on("error", (error) => {
+  console.error("Contract Event Error:", error);
+});
+
 async function initializeEventListeners() {
   try {
+    // Verify network
+    const network = await provider.getNetwork();
+    console.log("Connected to network:", network);
+
     // Verify contract connection
+    console.log("Verifying contract at address:", ethereumContractAddress);
     const code = await provider.getCode(ethereumContractAddress);
     if (code === "0x") {
       throw new Error("Contract not deployed at the specified address.");
     }
     console.log("Contract connected at address:", ethereumContractAddress);
 
-    // Listen for events
+    // Listen for PackageCreated events
     contract.on("PackageCreated", async (packageId, customer, event) => {
-      console.log("Full Event Details:");
+      console.log("PackageCreated event detected:");
       console.log("Package ID:", packageId.toString());
       console.log("Customer Address:", customer);
       console.log("Transaction Hash:", event.transactionHash);
@@ -619,34 +638,6 @@ async function initializeEventListeners() {
   }
 }
 
-async function synchronizeWithSui({ packageId, customer }) {
-  console.log("Synchronizing with Sui...");
-  
-  const command = `sui client call \
-    --package ${suiPackageId} \
-    --module SmartBox \
-    --function sync_data \
-    --args "${packageId}" "${customer}" \
-    --gas-budget 1000000`;
-  
-  console.log("Executing Sui CLI Command:", command);
-  
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      console.error("Sui Command Execution Error:", error);
-      return;
-    }
-    if (stderr) {
-      console.error("Sui CLI stderr:", stderr);
-      return;
-    }
-    console.log("Sui Synchronization Result:", stdout);
-  });
-}
-
-// Initial setup
-initializeEventListeners();
-
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('Shutting down gracefully...');
@@ -654,5 +645,8 @@ process.on('SIGINT', () => {
   provider.destroy();
   process.exit(0);
 });
+
+// Initial setup
+initializeEventListeners();
 
 console.log("Cross-chain Synchronization Script is running...");

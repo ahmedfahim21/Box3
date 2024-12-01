@@ -144,8 +144,6 @@ contract SmartBox {
     event PackageDeliveredOnSui(uint256 indexed packageId);
 
     function createPackage(string memory metadata, string memory cid, address customer, uint256 funds, string memory name, string memory description) external onlyDeliveryAgent {
-        require(users[customer].role == UserRole.Customer, "Not a customer");
-
         packages[nextPackageId] = Package({
             id: nextPackageId,
             cid: cid,
