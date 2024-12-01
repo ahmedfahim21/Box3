@@ -167,7 +167,47 @@ export default function OnboardingForm() {
     try {
       const response = await axios.post(`http://192.168.167.131:8000/api/create_tag/`);
       console.log(response.data);
+      // {id: 7, tag_id: 'JKVDWOAG', is_active: true, created_at: '2024-12-01T14:26:53.122016Z', updated_at: '2024-12-01T14:26:53.122064Z'}
       setRfid(response.data.tag_id);
+    } catch (error) {
+      console.log(error);
+      alert('Error generating key');
+    }
+  };
+
+  const readRFID = async () => {
+    try {
+      const response = await axios.get(`http://192.168.167.131:8000/api/get_tag/`);
+      console.log(response.data);
+      // {id: 7, tag_id: 'JKVDWOAG', is_active: true, created_at: '2024-12-01T14:26:53.122016Z', updated_at: '2024-12-01T14:26:53.122064Z'}
+    } catch (error) {
+      console.log(error);
+      alert('Error generating key');
+    }
+  };
+
+  const verifyPackage = async () => {
+    try {
+      const response = await axios.post(
+        'http://192.168.167.131:8000/api/verify_package/',
+        {
+          product_description: "A brown rugby ball.",
+          image_url: "https://aqua-legislative-cod-798.mypinata.cloud/ipfs/QmaWvn63nPwCjndRz1vnmFrymvmqJcpRZsBmw9DegVmeSs"
+        }
+      );
+      console.log(response.data);
+      // {isValidPackage: true, reason: 'Although the package description does not directly…e packaging appears to be related to the product.'}
+    } catch (error) {
+      console.log(error);
+      alert('Error generating key');
+    }
+  };
+
+  const actuateServo = async () => {
+    try {
+      const response = await axios.get(`http://192.168.167.131:8000/api/servo/`);
+      console.log(response.data);
+      // {message: success} - 200
     } catch (error) {
       console.log(error);
       alert('Error generating key');
