@@ -3,6 +3,6 @@ from .views import create_tag, get_tag
 
 
 urlpatterns = [
-    path('create/', create_tag),
-    path('get/', get_tag),   
+    path('create_tag/', create_tag),
+    path('get_tag/', get_tag),   
 ]
