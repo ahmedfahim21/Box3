@@ -2,6 +2,9 @@ import random
 import string
 import lgpio
 from mfrc522 import SimpleMFRC522
+from gpiozero import AngularServo
+from time import sleep
+import threading
 
 def createRandomKey():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
@@ -38,3 +41,10 @@ def writeTag(code):
         # Release the GPIO pin and close the chip
         lgpio.gpio_free(h, pin_rst)
         lgpio.gpiochip_close(h)
+
+def servo(duration):
+    servo = AngularServo(18, min_pulse_width=0.0006, max_pulse_width=0.0023)
+    servo.angle = 90
+    sleep(duration)
+    servo.angle = 0
+    sleep(1)
