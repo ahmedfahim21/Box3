@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { useSession } from 'next-auth/react'
 import { OktoContextType, useOkto } from 'okto-sdk-react'
+import { useAppContext } from '@/components/AppContext'
 
 // Mock data to simulate fetching from the blockchain
 const mockPackages = [
@@ -33,12 +34,14 @@ export default function CustomerDashboard() {
   const [packages, setPackages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const { data: session } = useSession();
+  const { apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole } = useAppContext();
   const {
     isLoggedIn,
 } = useOkto() as OktoContextType;
 
   useEffect(() => {
     // Simulating API call to fetch packages from the blockchain
+    console.log(account,role)
     const fetchPackages = async () => {
       await new Promise(resolve => setTimeout(resolve, 1500)) // Simulate network delay
       setPackages(mockPackages)
@@ -89,6 +92,8 @@ export default function CustomerDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      { account && role === 1 ? (
+        <div>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">My Packages</h1>
         <div className={`w-3 h-3 rounded-full ${isLoggedIn ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -150,7 +155,15 @@ export default function CustomerDashboard() {
             </Card>
           ))}
         </div>
+
       )}
+      </div>
+    ) : (
+      <div className="flex flex-col items-center justify-center h-96">
+        <p className="text-lg font-semibold">You are not authorized to view this page</p>
+        <p className="text-sm text-muted-foreground">Please log in as a customer to access this page</p>
+      </div>
+    )}
     </div>
   )
 }

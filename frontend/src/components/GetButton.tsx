@@ -28,14 +28,14 @@ const GetButton: React.FC<GetButtonProps> = ({ title, apiFn }) => {
   return (
     <div className="text-center text-white">
       <button
-        className="px-4 py-2 w-full bg-blue-500 text-white rounded"
+        className="my-2 px-4 py-2 w-full bg-primary hover:bg-primarydark text-white rounded"
         onClick={handleButtonClick}
       >
         {title}
       </button>
 
       {modalVisible && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center">
+        <div className="fixed z-50 inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center">
           <div className="bg-black rounded-lg w-11/12 max-w-2xl p-6">
             <div className="flex justify-between items-center border-b pb-2 mb-4">
               <h2 className="text-lg font-semibold">{title} Result</h2>

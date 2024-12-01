@@ -7,9 +7,12 @@ import { useSession, signIn, signOut } from "next-auth/react";
 // Create a context with a default value
 export const AppContext = createContext();
 
+
 export const AppContextProvider = ({ children }) => {
   const [apiKey, setApiKey] = useState(process.env.NEXT_PUBLIC_OKTO_CLIENT_API || "");
   const [buildType, setBuildType] = useState(BuildType.SANDBOX);
+  const [account, setAccount] = useState("");
+  const [role, setRole] = useState(1);
   const { data: session } = useSession();
 
   async function handleGAuthCb() {
@@ -21,7 +24,7 @@ export const AppContextProvider = ({ children }) => {
   }
 
   return (
-    <AppContext.Provider value={{ apiKey, setApiKey, buildType, setBuildType }}>
+    <AppContext.Provider value={{ apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole }}>
       <OktoProvider apiKey={apiKey} buildType={buildType} gAuthCb={handleGAuthCb}>
         {children}
       </OktoProvider>

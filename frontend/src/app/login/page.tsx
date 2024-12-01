@@ -30,23 +30,32 @@ import { EmailOTPVerification } from "@/components/EmailOTPVerification";
 import AuthButton from '@/components/AuthButton';
 import axios from 'axios';
 import Image from 'next/image';
+import { ethers } from "ethers";
+import Link from 'next/link';
+import SmartBoxABI from '../../abi.json';
+import { useRouter } from 'next/navigation';
 
-// const CONTRACT_ABI = SmartBoxABI;
-// const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+const CONTRACT_ABI = SmartBoxABI;
+const CONTRACT_ADDRESS : string = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 
 export default function OnboardingForm() {
     const [isLoading, setIsLoading] = useState(false)
-    const [rfid, setRfid] = useState('');
+    const [rfid, setRfid] = useState('test');
     const [selectedChain, setSelectedChain] = useState('');
     const [selectedToken, setSelectedToken] = useState('');
-    const [role, setRole] = useState("customer")
+    // const [role, setRole] = useState<string>("customer")
     const [networks, setNetworks] = useState([]);
     const [wallets, setWallets] = useState([]);
     const [walletsExist, setWalletsExist] = useState(false);
-    const [selectedWallet, setSelectedWallet] = useState('');
+    const [provider, setProvider] = useState<any>();
+    const [signer, setSigner] = useState<any>();
+    const [contract, setContract] = useState<any>();
+    const router = useRouter()
+    // const [account, setAccount] = useState<any>();
+
     const { data: session } = useSession();
-    const { apiKey, setApiKey, buildType, setBuildType } = useAppContext();
+    const { apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole } = useAppContext();
     const {
         isLoggedIn,
         authenticate,
@@ -75,62 +84,121 @@ export default function OnboardingForm() {
     const idToken = useMemo(() => (session ? session.id_token : null), [session]);
 
     useEffect(() => {
-        setApiKey(process.env.NEXT_PUBLIC_OKTA_API_KEY);
-        setBuildType(BuildType.SANDBOX)
-        if (isLoggedIn) {
-            console.log("Okto is authenticated");
-
-            getSupportedNetworks().then((data) => {
-                setNetworks(data.network || []);
-            });
-
-            // Fetch wallets 
-            getWallets().then((data) => {
-                setWallets(data.wallets || []);
-            });
-
-            if (wallets.length > 0) {
-                setWalletsExist(true);
+        const initialize = async () => {
+          try {
+            setApiKey(process.env.NEXT_PUBLIC_OKTA_API_KEY);
+            setBuildType(BuildType.SANDBOX);
+      
+            if (isLoggedIn) {
+              console.log("Okto is authenticated");
+      
+              // Fetch supported networks
+              const networkData = await getSupportedNetworks();
+              setNetworks(networkData.network || []);
+      
+              // Fetch wallets
+              const walletData = await getWallets();
+              setWallets(walletData.wallets || []);
+      
+              // Check if wallets exist
+              setWalletsExist(walletData.wallets?.length > 0);
+      
+              if (window.ethereum) {
+                const browserProvider = new ethers.BrowserProvider(window.ethereum);
+                await browserProvider.send('eth_requestAccounts', []); // Ensure user has connected wallet
+      
+                const signerInstance = await browserProvider.getSigner();
+                setProvider(browserProvider);
+                setSigner(signerInstance);
+      
+                const contractInstance = new ethers.Contract(
+                  CONTRACT_ADDRESS,
+                  CONTRACT_ABI,
+                  signerInstance
+                );
+                setContract(contractInstance);
+                console.log('Contract instance:', contractInstance);
+              } else {
+                console.error("MetaMask is not installed!");
+              }
             }
-        }
-        // if (window.ethereum) {
-        //   const browserProvider = new ethers.BrowserProvider(window.ethereum);
-        //   setProvider(browserProvider);
-
-        //   const contractInstance = new ethers.Contract(
-        //     CONTRACT_ADDRESS,
-        //     CONTRACT_ABI,
-        //     browserProvider
-        //   );
-        //   setContract(contractInstance);
-        // } else {
-        //   console.error("MetaMask is not installed!");
-        // }
-    }, [isLoggedIn, getSupportedNetworks, getWallets]);
+          } catch (error) {
+            console.error("Error during initialization:", error);
+          }
+        };
+      
+        initialize();
+      }, [isLoggedIn, getSupportedNetworks, getWallets]);
+      
 
     const handleCreateWallet = () => {
         createWallet().then((data) => {
             console.log(data)
+            setWalletsExist(true);
         });
     };
 
-    //   const connectWallet = async () => {
-    //     if (!provider) return;
+      const connectMetaMask = async () => {
+        if (!provider) return;
 
-    //     try {
-    //       const accounts = await provider.send("eth_requestAccounts", []);
-    //       setAccount(accounts[0]);
-    //       console.log("Connected account:", accounts[0]);
-    //     } catch (error) {
-    //       console.error("Error connecting to MetaMask:", error);
-    //     }
-    //   };
+        try {
+          const accounts = await provider.send("eth_requestAccounts", []);
+          setAccount(accounts[0]);
+          console.log("Connected account:", accounts[0]);
+        } catch (error) {
+          console.error("Error connecting to MetaMask:", error);
+        }
+      };
 
 
-    const handleRegister = () => {
+      const handleRegister = async () => {
+        if (!account || !rfid) {
+          alert('Please ensure metamask account and RFID data are available.');
+          return;
+        }
+      
         setIsLoading(true);
-        // Registration logic
-    };
+      
+        try {
+          const user = {
+            metadata: account,
+            rfidData: rfid,
+            role: role,
+          };
+      
+          // Assume `registerUserOnChain` interacts with a blockchain smart contract.
+          await registerUserOnChain(user);
+      
+          console.log('User registered successfully:', user);
+        } catch (error) {
+          console.error('Error during registration:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      
+      const registerUserOnChain = async (user) => {
+        const { metadata, rfidData, role } = user;
+
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+        console.log('Registering user on-chain:', metadata, rfidData, role);
+    
+        const tx = await contract.registerUser(metadata, "", rfidData, role);
+        console.log('Transaction sent:', tx);
+    
+        // 6. Wait for transaction confirmation
+        const receipt = await tx.wait();
+        console.log('Transaction confirmed:', receipt);
+
+        if(role == 1)
+            router.push('/customer-dashboard');
+        else
+            router.push('/agent-dashboard');
+    
+        return receipt;
+      };
 
 
 
@@ -226,6 +294,13 @@ export default function OnboardingForm() {
                         onVerificationSuccess={() => console.log('Verification successful')}
                         onVerificationError={(error) => console.error('Verification failed:', error)}
                     />
+                    <div className="flex items-center gap-2 bg-white rounded-lg px-4 py-2 shadow-sm">
+                        <div className={`w-3 h-3 rounded-full ${isLoggedIn ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-sm font-medium">
+                            Status: {isLoggedIn ? 'Logged In' : 'Not Logged In'}
+                        </span>
+                    </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="role" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Select your role
@@ -278,6 +353,7 @@ export default function OnboardingForm() {
                                             </div>
                                         ))}
                                     </div>
+                                    <GetButton title="Show My Wallets" apiFn={getWallets} />
                                 </div>
                             ) :
                             <Button className="w-full" onClick={handleCreateWallet}>
@@ -293,7 +369,7 @@ export default function OnboardingForm() {
                             value={rfid}
                             onChange={(e) => setRfid(e.target.value)}
                             disabled={true}
-                            className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-200 disabled:text-gray-500"
+                            className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md focus:outline-none disabled:bg-gray-200 disabled:text-gray-500"
                         />
                     </div>
 
@@ -302,10 +378,15 @@ export default function OnboardingForm() {
                     </Button>
 
 
+                    <div className="flex items-center gap-2 bg-white rounded-lg px-4 py-2 shadow-sm mt-4">
+                        <Button className="w-full py-2 rounded-lg hover:bg-primarydark text-white" onClick={connectMetaMask}>
+                            Connect MetaMask
+                        </Button>
+                    </div>
                     <div className="flex items-center gap-2 bg-white rounded-lg px-4 py-2 shadow-sm">
-                        <div className={`w-3 h-3 rounded-full ${isLoggedIn ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div className={`w-3 h-3 rounded-full ${account ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         <span className="text-sm font-medium">
-                            Status: {isLoggedIn ? 'Logged In' : 'Not Logged In'}
+                            Status: {account ? account : 'Not Connected'}
                         </span>
                     </div>
 
@@ -332,7 +413,7 @@ export default function OnboardingForm() {
                     <GetButton title="getSupportedNetworks" apiFn={getSupportedNetworks} />
                     <GetButton title="getSupportedTokens" apiFn={getSupportedTokens} />
                     <GetButton title="getUserDetails" apiFn={getUserDetails} />
-                    <GetButton title="getWallets" apiFn={getWallets} />
+
                     <GetButton title="createWallet" apiFn={createWallet} />
                     <GetButton title="orderHistory" apiFn={() => orderHistory({})} />
                     {/* <GetButton
@@ -347,6 +428,14 @@ export default function OnboardingForm() {
                     >
                         Show Modal
                     </button>
+
+                    <Link href="/customer-dashboard">
+                        <Button className="bg-primary text-background hover:bg-primarydark">Get Started</Button>
+                    </Link>
+                    <Link href="/agent-dashboard">
+                        <Button className="bg-primary text-background hover:bg-primarydark">Get Started</Button>
+                    </Link>
+
                     {/* <button
           className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           onClick={() => {
