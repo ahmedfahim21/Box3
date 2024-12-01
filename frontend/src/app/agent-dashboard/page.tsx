@@ -28,7 +28,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import React from "react";
+import dynamic from "next/dynamic";
 
+const WebcamCaptureModal = dynamic(
+  () => import("../../../components/WebcamCapture"),
+  { ssr: false }
+);
 // Mock data to simulate fetching from the blockchain
 const mockOrders = [
   { id: 1, customer: '0x1234...5678', metadata: 'Books', status: 'Pending', value: 50 },
@@ -43,6 +49,9 @@ const mockPackages = [
 ]
 
 export default function DeliveryAgentDashboard() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
   const [orders, setOrders] = useState([])
   const [packages, setPackages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -85,7 +94,7 @@ export default function DeliveryAgentDashboard() {
     // Here you would call the smart contract function to mark as delivered
     console.log(`Marking package ${packageId} as delivered`)
     // For demo purposes, we'll just update the local state
-    const updatedPackages = packages.map(pkg => 
+    const updatedPackages = packages.map(pkg =>
       pkg.id === packageId ? { ...pkg, delivered: true } : pkg
     )
     setPackages(updatedPackages)
@@ -113,7 +122,7 @@ export default function DeliveryAgentDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Delivery Agent Dashboard</h1>
-      
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard title="Total Packages" value={stats.total} icon={<Package className="h-8 w-8" />} />
@@ -227,6 +236,8 @@ export default function DeliveryAgentDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          <Button size="sm" className='mx-2' onClick={openModal}>Open Webcam Modal</Button>
+                          <WebcamCaptureModal isOpen={isModalOpen} onClose={closeModal} />
                           {!pkg.delivered && (
                             <Button size="sm" onClick={() => handleMarkAsDelivered(pkg.id)}>
                               Mark Delivered
@@ -242,7 +253,7 @@ export default function DeliveryAgentDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </div >
   )
 }
 
