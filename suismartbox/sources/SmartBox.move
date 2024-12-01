@@ -16,6 +16,8 @@ module suismartbox::SmartBox {
         customer: address,
         delivered: bool,
         funds: u64,
+        name: vector<u8>, // New field
+        description: vector<u8> // New field
     }
 
     public fun create_state(ctx: &mut tx_context::TxContext): State {
@@ -29,6 +31,8 @@ module suismartbox::SmartBox {
         metadata: vector<u8>,
         cid: vector<u8>,
         customer: address,
+        name: vector<u8>, // New parameter
+        description: vector<u8>, // New parameter
         state: &mut State,
         ctx: &mut tx_context::TxContext
     ) {
@@ -39,6 +43,8 @@ module suismartbox::SmartBox {
             customer,
             delivered: false,
             funds: 0,
+            name, // New field
+            description // New field
         };
         
         table::add(&mut state.active_packages, object::id(&package), true);
@@ -50,13 +56,15 @@ module suismartbox::SmartBox {
         table::remove(&mut state.active_packages, object::id(package));
     }
 
-    public fun get_package_details(package: &Package): (address, vector<u8>, vector<u8>, bool, u64) {
+    public fun get_package_details(package: &Package): (address, vector<u8>, vector<u8>, bool, u64, vector<u8>, vector<u8>) {
         (
             package.customer, 
             package.metadata, 
             package.cid, 
             package.delivered, 
-            package.funds
+            package.funds,
+            package.name, // New field
+            package.description // New field
         )
     }
 

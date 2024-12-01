@@ -22,6 +22,8 @@ contract SmartBox {
         bool delivered;
         bool fundsReleased;
         uint256 funds;
+        string name; // New field
+        string description; // New field
     }
 
     mapping(address => User) public users;
@@ -138,10 +140,10 @@ contract SmartBox {
         return allPackages;
     }
 
-    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, string cid);
+    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, string cid, string name, string description);
     event PackageDeliveredOnSui(uint256 indexed packageId);
 
-    function createPackage(string memory metadata, string memory cid, address customer, uint256 funds) external onlyDeliveryAgent {
+    function createPackage(string memory metadata, string memory cid, address customer, uint256 funds, string memory name, string memory description) external onlyDeliveryAgent {
         require(users[customer].role == UserRole.Customer, "Not a customer");
 
         packages[nextPackageId] = Package({
@@ -151,11 +153,13 @@ contract SmartBox {
             customer: customer,
             delivered: false,
             fundsReleased: false,
-            funds: funds
+            funds: funds,
+            name: name, // New field
+            description: description // New field
         });
 
         emit PackageCreated(nextPackageId, customer);
-        emit PackageCreatedOnSui(nextPackageId, metadata, cid); // Notify Sui
+        emit PackageCreatedOnSui(nextPackageId, metadata, cid, name, description); // Notify Sui
         nextPackageId++;
     }
 

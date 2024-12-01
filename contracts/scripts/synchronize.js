@@ -2,10 +2,17 @@ require('dotenv').config();
 const { ethers } = require("ethers");
 const { exec } = require("child_process");
 
-const alchemyProviderUrl = `https://eth-sepolia.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`;
+const alchemyProviderUrl = `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+
+if (!process.env.ALCHEMY_API_KEY) {
+  console.error("Missing Alchemy API key in environment variables.");
+  process.exit(1);
+}
+
 const provider = new ethers.providers.JsonRpcProvider(alchemyProviderUrl);
 
-// Ethereum Contract ABI and Address
+// Ethereum Contract Configuration
+const ethereumContractAddress = "0x34E44ddFfDA2ff2344C15eFAc91a21dA8a4B75e2";
 const contractABI = [
   {
     "inputs": [],
@@ -82,6 +89,18 @@ const contractABI = [
         "indexed": false,
         "internalType": "string",
         "name": "cid",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "description",
         "type": "string"
       }
     ],
@@ -178,6 +197,16 @@ const contractABI = [
         "internalType": "uint256",
         "name": "funds",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
       }
     ],
     "name": "createPackage",
@@ -225,6 +254,16 @@ const contractABI = [
             "internalType": "uint256",
             "name": "funds",
             "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
           }
         ],
         "internalType": "struct SmartBox.Package[]",
@@ -281,6 +320,16 @@ const contractABI = [
             "internalType": "uint256",
             "name": "funds",
             "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
           }
         ],
         "internalType": "struct SmartBox.Package",
@@ -379,6 +428,16 @@ const contractABI = [
         "internalType": "uint256",
         "name": "funds",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
       }
     ],
     "stateMutability": "view",
@@ -465,6 +524,16 @@ const contractABI = [
             "internalType": "uint256",
             "name": "funds",
             "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
           }
         ],
         "internalType": "struct SmartBox.Package[]",
@@ -510,54 +579,80 @@ const contractABI = [
     "type": "function"
   }
 ];
-const ethereumContractAddress = "0x50784CC39aCF4719864e616a181810d069D27970";
+
+const suiPackageId = "0x0d1b8db121e79c16958c832480a8be75d0d7b6f56ed913bb651f09fb1efff75c";
+
+// Error handling for provider
+provider.on("error", (error) => {
+  console.error("WebSocket Provider Error:", error);
+});
 
 // Connect to Ethereum Contract
 const contract = new ethers.Contract(ethereumContractAddress, contractABI, provider);
 
-// Sui package ID for your contract
-const suiPackageId = "0x94a24e29639c7ee96f736d23a7e0f72107c10bb17f12b8251903ccb18670b667";
-
-// Listen for events on Ethereum
-contract.on("PackageCreated", async (eventData) => {
-  console.log("Event detected on Ethereum:", eventData);
-
-  // Example action: Call the Sui contract when an event occurs on Ethereum
-  await synchronizeWithSui(eventData);
-});
-
-// Function to interact with the Sui blockchain
-async function synchronizeWithSui(eventData) {
+async function initializeEventListeners() {
   try {
-    // Assuming you're using Sui CLI or SDK to invoke your Sui contract
-    // This is an example of calling a Sui function after detecting an event on Ethereum
+    // Verify contract connection
+    const code = await provider.getCode(ethereumContractAddress);
+    if (code === "0x") {
+      throw new Error("Contract not deployed at the specified address.");
+    }
+    console.log("Contract connected at address:", ethereumContractAddress);
 
-    const eventId = eventData.id; // Extracted from the Ethereum event.
-    const value = eventData.value; // Extracted from the Ethereum event.
+    // Listen for events
+    contract.on("PackageCreated", async (packageId, customer, event) => {
+      console.log("Full Event Details:");
+      console.log("Package ID:", packageId.toString());
+      console.log("Customer Address:", customer);
+      console.log("Transaction Hash:", event.transactionHash);
 
-    // Construct the CLI command dynamically
-    const command = `sui client call \
-      --package ${suiPackageId} \
-      --module SmartBox \
-      --function sync_data \
-      --args "${eventId}" ${value} \
-      --gas-budget 1000000`;
-
-    // Execute Sui CLI command
-    exec(command, (err, stdout, stderr) => {
-      if (err) {
-        console.error("Error executing Sui command:", err);
-        return;
+      try {
+        await synchronizeWithSui({ packageId: packageId.toString(), customer });
+      } catch (error) {
+        console.error("Synchronization Error:", error);
       }
-      if (stderr) {
-        console.error("Sui CLI error:", stderr);
-        return;
-      }
-      console.log("Sui CLI response:", stdout);
     });
+
+    console.log("Event listeners initialized successfully.");
   } catch (error) {
-    console.error("Error synchronizing with Sui:", error);
+    console.error("Contract Initialization Error:", error);
   }
 }
 
-console.log("Synchronization script is running...");
+async function synchronizeWithSui({ packageId, customer }) {
+  console.log("Synchronizing with Sui...");
+  
+  const command = `sui client call \
+    --package ${suiPackageId} \
+    --module SmartBox \
+    --function sync_data \
+    --args "${packageId}" "${customer}" \
+    --gas-budget 1000000`;
+  
+  console.log("Executing Sui CLI Command:", command);
+  
+  exec(command, (error, stdout, stderr) => {
+    if (error) {
+      console.error("Sui Command Execution Error:", error);
+      return;
+    }
+    if (stderr) {
+      console.error("Sui CLI stderr:", stderr);
+      return;
+    }
+    console.log("Sui Synchronization Result:", stdout);
+  });
+}
+
+// Initial setup
+initializeEventListeners();
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down gracefully...');
+  provider.removeAllListeners();
+  provider.destroy();
+  process.exit(0);
+});
+
+console.log("Cross-chain Synchronization Script is running...");
