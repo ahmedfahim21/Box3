@@ -5,8 +5,9 @@ from .models import Tag
 from .utils import createRandomKey, readTag, writeTag, servo, verify_package
 from rest_framework import status
 import json
+from django.views.decorators.csrf import csrf_exempt
 
-
+@csrf_exempt
 @api_view(['POST'])
 def create_tag(request):
     if request.data.get('tag_id') is None:

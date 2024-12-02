@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 contract SmartBox {
     address public owner;
     uint256 public nextPackageId;
+    uint256 public nextOrderId;
+    address[] public userAddresses;  // To store all user addresses
 
     enum UserRole { None, Customer, DeliveryAgent }
 
@@ -22,16 +24,35 @@ contract SmartBox {
         bool delivered;
         bool fundsReleased;
         uint256 funds;
+        string name;
+        string description;
+        address deliveryAgent; // Add delivery agent field
+    }
+
+    struct Order {
+        uint256 id;
+        string metadata;
+        string cid;
+        address customer;
+        bool fulfilled;
+        uint256 funds;
+        string name;
+        string description;
     }
 
     mapping(address => User) public users;
     mapping(uint256 => Package) public packages;
+    mapping(uint256 => Order) public orders;
 
     event UserRegistered(address indexed user, UserRole role);
     event PackageCreated(uint256 indexed packageId, address indexed customer);
     event PackageDelivered(uint256 indexed packageId, address indexed deliveryAgent);
     event FundsReleased(uint256 indexed packageId);
     event FundsAdded(uint256 indexed packageId, uint256 amount);
+    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, address customer, uint256 funds, string cid, string name, string description);
+    event PackageDeliveredOnSui(uint256 indexed packageId);
+    event OrderCreated(uint256 indexed orderId, address indexed customer);
+    event OrderFulfilled(uint256 indexed orderId, uint256 indexed packageId);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -60,39 +81,65 @@ contract SmartBox {
             rfidData: rfidData,
             role: role
         });
+        userAddresses.push(msg.sender); // Store the address when a user is registered
         emit UserRegistered(msg.sender, role);
     }
 
-    // function createPackage(string memory metadata, string memory cid, address customer, uint256 funds) external onlyDeliveryAgent {
-    //     require(users[customer].role == UserRole.Customer, "Not a customer");
-    //     require(bytes(users[customer].rfidData).length != 0, "Customer not registered with RFID");
+    function createOrder(string memory metadata, string memory cid, uint256 funds, string memory name, string memory description) external payable {
+        // require(msg.value == funds, "Incorrect funds sent");
 
-    //     packages[nextPackageId] = Package({
-    //         id: nextPackageId,
-    //         cid: cid,
-    //         metadata: metadata,
-    //         customer: customer,
-    //         delivered: false,
-    //         fundsReleased: false,
-    //         funds: funds
-    //     });
-    //     emit PackageCreated(nextPackageId, customer);
-    //     nextPackageId++;
-    // }
+        orders[nextOrderId] = Order({
+            id: nextOrderId,
+            metadata: metadata,
+            cid: cid,
+            customer: msg.sender,
+            fulfilled: false,
+            funds: funds,
+            name: name,
+            description: description
+        });
 
-    // function markAsDelivered(uint256 packageId, string memory cid) external onlyDeliveryAgent {
-    //     Package storage pkg = packages[packageId];
-    //     require(!pkg.delivered, "Package already delivered");
+        emit OrderCreated(nextOrderId, msg.sender);
+        nextOrderId++;
+    }
 
-    //     pkg.delivered = true;
-    //     pkg.cid = cid;
-    //     emit PackageDelivered(packageId, msg.sender);
-    // }
+    function createPackage(uint256 orderId) external onlyDeliveryAgent {
+        Order storage order = orders[orderId];
+        require(!order.fulfilled, "Order already fulfilled");
+
+        packages[nextPackageId] = Package({
+            id: nextPackageId,
+            cid: order.cid,
+            metadata: order.metadata,
+            customer: order.customer,
+            delivered: false,
+            fundsReleased: false,
+            funds: order.funds,
+            name: order.name,
+            description: order.description,
+            deliveryAgent: msg.sender
+        });
+
+        order.fulfilled = true;
+        emit PackageCreated(nextPackageId, order.customer);
+        emit PackageCreatedOnSui(nextPackageId, order.metadata, order.customer, order.funds, order.cid, order.name, order.description);
+        emit OrderFulfilled(orderId, nextPackageId);
+        nextPackageId++;
+    }
+
+    function assignDeliveryAgent(uint256 packageId, address deliveryAgent) external onlyOwner {
+        Package storage pkg = packages[packageId];
+        require(pkg.deliveryAgent == address(0), "Delivery agent already assigned");
+        pkg.deliveryAgent = deliveryAgent;
+    }
 
     function releaseFunds(uint256 packageId) external onlyCustomer(packageId) {
         Package storage pkg = packages[packageId];
         require(pkg.delivered, "Package not delivered");
         require(!pkg.fundsReleased, "Funds already released");
+
+        // Send the funds to the delivery agent
+        payable(pkg.deliveryAgent).transfer(pkg.funds);
 
         pkg.fundsReleased = true;
         emit FundsReleased(packageId);
@@ -110,24 +157,16 @@ contract SmartBox {
         return packages[packageId];
     }
 
-    function getMyPackageDetails() external view returns (Package[] memory) {
-        require(users[msg.sender].role == UserRole.Customer, "Not a customer");
-        uint256 count = 0;
-        for (uint256 i = 0; i < nextPackageId; i++) {
-            if (packages[i].customer == msg.sender) {
-                count++;
-            }
-        }
+    function getOrder(uint256 orderId) external view returns (Order memory) {
+        return orders[orderId];
+    }
 
-        Package[] memory myPackages = new Package[](count);
-        uint256 index = 0;
-        for (uint256 i = 0; i < nextPackageId; i++) {
-            if (packages[i].customer == msg.sender) {
-                myPackages[index] = packages[i];
-                index++;
-            }
-        }
-        return myPackages;
+    function getAllUsers() external view returns (address[] memory) {
+        return userAddresses; // Return the list of all user addresses
+    }
+
+    function getUser(address userAddress) external view returns (User memory) {
+        return users[userAddress]; // Return the details of a particular user
     }
 
     function trackAllPackages() external view onlyDeliveryAgent returns (Package[] memory) {
@@ -138,31 +177,19 @@ contract SmartBox {
         return allPackages;
     }
 
-    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, string cid);
-    event PackageDeliveredOnSui(uint256 indexed packageId);
-
-    function createPackage(string memory metadata, string memory cid, address customer, uint256 funds) external onlyDeliveryAgent {
-        require(users[customer].role == UserRole.Customer, "Not a customer");
-
-        packages[nextPackageId] = Package({
-            id: nextPackageId,
-            cid: cid,
-            metadata: metadata,
-            customer: customer,
-            delivered: false,
-            fundsReleased: false,
-            funds: funds
-        });
-
-        emit PackageCreated(nextPackageId, customer);
-        emit PackageCreatedOnSui(nextPackageId, metadata, cid); // Notify Sui
-        nextPackageId++;
-    }
-
-    function markAsDelivered(uint256 packageId, string memory cid) external onlyDeliveryAgent {
-        packages[packageId].delivered = true;
+    function markAsDelivered(uint256 packageId) external onlyDeliveryAgent {
+        Package storage pkg = packages[packageId];
+        pkg.delivered = true;
 
         emit PackageDelivered(packageId, msg.sender);
         emit PackageDeliveredOnSui(packageId); // Notify Sui
+    }
+
+    function getAllOrders() external view returns (Order[] memory) {
+        Order[] memory allOrders = new Order[](nextOrderId);
+        for (uint256 i = 0; i < nextOrderId; i++) {
+            allOrders[i] = orders[i];
+        }
+        return allOrders;
     }
 }
