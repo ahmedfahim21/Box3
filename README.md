@@ -12,7 +12,8 @@
 
 ## **System Architecture**
 
-![System Architecture](https://github.com/imApoorva36/Box3/raw/main/path/to/architecture_image.jpg)
+![WhatsApp Image 2024-12-02 at 06 55 03_67043e85](https://github.com/user-attachments/assets/07511f60-c2f1-480a-81ac-85d037859c5b)
+
 
 ### **Core Components**
 
