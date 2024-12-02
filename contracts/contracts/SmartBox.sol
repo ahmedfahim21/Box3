@@ -34,6 +34,8 @@ contract SmartBox {
     event PackageDelivered(uint256 indexed packageId, address indexed deliveryAgent);
     event FundsReleased(uint256 indexed packageId);
     event FundsAdded(uint256 indexed packageId, uint256 amount);
+    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, address customer, uint256 funds, string cid, string name, string description);
+    event PackageDeliveredOnSui(uint256 indexed packageId);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -139,9 +141,6 @@ contract SmartBox {
         }
         return allPackages;
     }
-
-    event PackageCreatedOnSui(uint256 indexed packageId, string metadata, address customer, uint256 funds, string cid, string name, string description);
-    event PackageDeliveredOnSui(uint256 indexed packageId);
 
     function createPackage(string memory metadata, string memory cid, address customer, uint256 funds, string memory name, string memory description) external onlyDeliveryAgent {
         packages[nextPackageId] = Package({

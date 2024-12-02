@@ -27,6 +27,7 @@
   "dependencies": {
     "@mysten/sui": "^1.16.0",
     "@mysten/sui.js": "^0.54.1",
+    "bech32": "^2.0.0",
     "dotenv": "^16.4.5"
   }
 }

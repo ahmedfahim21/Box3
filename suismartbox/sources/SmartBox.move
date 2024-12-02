@@ -44,6 +44,7 @@ module suismartbox::smartbox {
         customer: address,
         name: vector<u8>,
         description: vector<u8>,
+        funds: u64,
         ctx: &mut TxContext
     ) {
         let package = Package {
@@ -52,7 +53,7 @@ module suismartbox::smartbox {
             cid,
             customer,
             delivered: false,
-            funds: 0,
+            funds,
             name,
             description
         };
