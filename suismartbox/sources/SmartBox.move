@@ -12,6 +12,12 @@ module suismartbox::smartbox {
         metadata: vector<u8>
     }
 
+    public struct FundsReleasedEvent has copy, drop {
+        package_id: object::ID,
+        amount: u64,
+        recipient: address
+    }
+
     public struct State has key {
         id: object::UID,
         active_packages: Table<object::ID, bool>
@@ -24,6 +30,7 @@ module suismartbox::smartbox {
         customer: address,
         delivered: bool,
         funds: u64,
+        funds_released: bool,
         name: vector<u8>,
         description: vector<u8>
     }
@@ -37,7 +44,7 @@ module suismartbox::smartbox {
         );
     }
 
-    public entry fun create_package(
+    public fun create_package(
         state: &mut State,
         metadata: vector<u8>,
         cid: vector<u8>,
@@ -54,6 +61,7 @@ module suismartbox::smartbox {
             customer,
             delivered: false,
             funds,
+            funds_released: false,
             name,
             description
         };
@@ -76,6 +84,24 @@ module suismartbox::smartbox {
     ) {
         assert!(!package.delivered, 0);
         package.delivered = true;
+        table::remove(&mut state.active_packages, object::id(package));
+    }
+
+    public entry fun release_funds(
+        package: &mut Package,
+        state: &mut State
+    ) {
+        assert!(package.delivered, 0); // Package must be delivered
+        assert!(!package.funds_released, 1); // Funds not already released
+        
+        package.funds_released = true;
+        
+        event::emit(FundsReleasedEvent {
+            package_id: object::id(package),
+            amount: package.funds,
+            recipient: package.customer
+        });
+        
         table::remove(&mut state.active_packages, object::id(package));
     }
 
