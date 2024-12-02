@@ -89,7 +89,7 @@ export default function OnboardingForm() {
         setBuildType(BuildType.SANDBOX);
 
         if (isLoggedIn) {
-          console.log("Okto is authenticated");
+        //   console.log("Okto is authenticated");
 
           // Fetch supported networks
           const networkData = await getSupportedNetworks();
@@ -109,6 +109,8 @@ export default function OnboardingForm() {
             const signerInstance = await browserProvider.getSigner();
             setProvider(browserProvider);
             setSigner(signerInstance);
+            console.log(signerInstance)
+
 
             const contractInstance = new ethers.Contract(
               CONTRACT_ADDRESS,
@@ -116,7 +118,7 @@ export default function OnboardingForm() {
               signerInstance
             );
             setContract(contractInstance);
-            console.log('Contract instance:', contractInstance);
+            // console.log('Contract instance:', contractInstance);
           } else {
             console.error("MetaMask is not installed!");
           }
@@ -273,13 +275,13 @@ export default function OnboardingForm() {
                 <SelectValue placeholder="Choose your role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="customer" className="cursor-pointer">
+                <SelectItem value="1" className="cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <User className="w-4 h-4 text-primary" />
                     <span>Customer</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="deliveryAgent" className="cursor-pointer">
+                <SelectItem value="2" className="cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <Truck className="w-4 h-4 text-black" />
                     <span>Delivery Agent</span>

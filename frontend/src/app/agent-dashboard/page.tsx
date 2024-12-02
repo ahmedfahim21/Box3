@@ -30,6 +30,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import React from "react";
 import dynamic from "next/dynamic";
+import { useSession } from 'next-auth/react'
+import { useAppContext } from '@/components/AppContext'
+import { metadata } from '../layout'
+import { ethers } from 'ethers'
 
 const WebcamCaptureModal = dynamic(
   () => import("../../../components/WebcamCapture"),
@@ -37,15 +41,15 @@ const WebcamCaptureModal = dynamic(
 );
 // Mock data to simulate fetching from the blockchain
 const mockOrders = [
-  { id: 1, customer: '0x1234...5678', metadata: 'Books', status: 'Pending', value: 50 },
-  { id: 2, customer: '0x2345...6789', metadata: 'Electronics', status: 'Pending', value: 200 },
-  { id: 3, customer: '0x3456...7890', metadata: 'Clothing', status: 'Pending', value: 75 },
+  { id: 1, customer: '0x1234...5678', metadata: 'Books', status: 'Pending', value: 0.01 },
+  { id: 2, customer: '0x2345...6789', metadata: 'Electronics', status: 'Pending', value: 0.05 },
+  { id: 3, customer: '0x3456...7890', metadata: 'Clothing', status: 'Pending', value: 0.02 },
 ]
 
 const mockPackages = [
-  { id: 1, cid: 'Qm...1', metadata: 'Books', customer: '0x1234...5678', delivered: false, fundsReleased: false, funds: 50 },
-  { id: 2, cid: 'Qm...2', metadata: 'Electronics', customer: '0x2345...6789', delivered: true, fundsReleased: false, funds: 200 },
-  { id: 3, cid: 'Qm...3', metadata: 'Clothing', customer: '0x3456...7890', delivered: true, fundsReleased: true, funds: 75 },
+  { id: 1, cid: 'Qm...1', metadata: 'Books', customer: '0x1234...5678', delivered: false, fundsReleased: false, funds: 0.01 },
+  { id: 2, cid: 'Qm...2', metadata: 'Electronics', customer: '0x2345...6789', delivered: true, fundsReleased: false, funds: 0.05 },
+  { id: 3, cid: 'Qm...3', metadata: 'Clothing', customer: '0x3456...7890', delivered: true, fundsReleased: true, funds: 0.02 },
 ]
 
 export default function DeliveryAgentDashboard() {
@@ -57,10 +61,21 @@ export default function DeliveryAgentDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [stats, setStats] = useState({ total: 0, delivered: 0, pending: 0, totalValue: 0 })
 
+
+  const { data: session } = useSession();
+  const { apiKey, setApiKey, buildType, setBuildType, account, setAccount, role, setRole, contract, setContract } = useAppContext();
+
   useEffect(() => {
     // Simulating API call to fetch orders and packages from the blockchain
     const fetchData = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1500)) // Simulate network delay
+
+      if(contract){
+        const fetchOrders = await contract.getAllOrders();
+
+        console.log(fetchOrders.funds);
+      }
+
+
       setOrders(mockOrders)
       setPackages(mockPackages)
       setIsLoading(false)
@@ -68,7 +83,7 @@ export default function DeliveryAgentDashboard() {
     }
 
     fetchData()
-  }, [])
+  }, [contract])
 
   const calculateStats = (pkgs) => {
     const total = pkgs.length
@@ -102,22 +117,47 @@ export default function DeliveryAgentDashboard() {
   }
 
   const handleCreatePackage = async (formData) => {
-    // Here you would call the smart contract function to create a new package
-    console.log('Creating new package:', formData)
-    // For demo purposes, we'll just update the local state
-    const newPackage = {
-      id: packages.length + 1,
-      cid: formData.cid,
-      metadata: formData.metadata,
-      customer: formData.customer,
-      delivered: false,
-      fundsReleased: false,
-      funds: parseFloat(formData.funds)
+    try {
+      console.log('Creating new package:', formData);
+  
+      // Format funds to appropriate format (assuming ETH)
+      // const funds = ethers.utils.parseEther(formData.funds.toString());
+  
+      // Call the smart contract function
+      const tx = await contract.createPackage(
+        formData.metadata,
+        formData.cid,
+        formData.customer,
+        formData.funds
+      );
+      console.log('Transaction sent:', tx);
+  
+      // Wait for the transaction to be mined
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt);
+  
+      // Create the new package object
+      const newPackage = {
+        id: packages.length + 1,
+        cid: formData.cid,
+        metadata: formData.metadata,
+        customer: formData.customer,
+        delivered: false,
+        fundsReleased: false,
+        funds: formData.funds // Keep as string for display purposes
+      };
+  
+      // Update state after successful transaction
+      const updatedPackages = [...packages, newPackage];
+      setPackages(updatedPackages);
+      calculateStats(updatedPackages);
+  
+    } catch (error) {
+      console.error('Error creating package:', error);
+      // Optionally display error feedback to the user
     }
-    const updatedPackages = [...packages, newPackage]
-    setPackages(updatedPackages)
-    calculateStats(updatedPackages)
-  }
+  };
+  
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -128,7 +168,7 @@ export default function DeliveryAgentDashboard() {
         <StatCard title="Total Packages" value={stats.total} icon={<Package className="h-8 w-8" />} />
         <StatCard title="Delivered" value={stats.delivered} icon={<Truck className="h-8 w-8" />} />
         <StatCard title="Pending" value={stats.pending} icon={<AlertCircle className="h-8 w-8" />} />
-        <StatCard title="Total Value" value={`$${stats.totalValue}`} icon={<BarChart3 className="h-8 w-8" />} />
+        <StatCard title="Total Value" value={`${stats.totalValue} ETH`} icon={<BarChart3 className="h-8 w-8" />} />
       </div>
 
       {/* Orders and Packages Tabs */}
@@ -174,7 +214,7 @@ export default function DeliveryAgentDashboard() {
                         <TableCell>{order.id}</TableCell>
                         <TableCell>{order.customer}</TableCell>
                         <TableCell>{order.metadata}</TableCell>
-                        <TableCell>${order.value}</TableCell>
+                        <TableCell>{order.value} ETH</TableCell>
                         <TableCell>
                           <Badge variant="outline">{order.status}</Badge>
                         </TableCell>
@@ -228,7 +268,7 @@ export default function DeliveryAgentDashboard() {
                         <TableCell>{pkg.cid}</TableCell>
                         <TableCell>{pkg.metadata}</TableCell>
                         <TableCell>{pkg.customer}</TableCell>
-                        <TableCell>${pkg.funds}</TableCell>
+                        <TableCell>{pkg.funds} ETH</TableCell>
                         <TableCell>
                           <Badge variant={pkg.fundsReleased ? 'default' : pkg.delivered ? 'secondary' : 'outline'}>
                             {getStatusIcon(pkg.delivered, pkg.fundsReleased)}
@@ -297,7 +337,7 @@ function CreatePackageDialog({ order, onCreatePackage }) {
           Create Package
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] bg-white">
         <DialogHeader>
           <DialogTitle>Create Package</DialogTitle>
           <DialogDescription>
@@ -332,7 +372,7 @@ function CreatePackageDialog({ order, onCreatePackage }) {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="funds" className="text-right">
-                Value ($)
+                Value (ETH)
               </Label>
               <Input
                 id="funds"
