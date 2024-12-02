@@ -236,7 +236,7 @@ export default function DeliveryAgentDashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" className='mx-2' onClick={openModal}>Open Webcam Modal</Button>
+                          <Button size="sm" className='mx-2' onClick={openModal}>Open Webcam</Button>
                           <WebcamCaptureModal isOpen={isModalOpen} onClose={closeModal} />
                           {!pkg.delivered && (
                             <Button size="sm" onClick={() => handleMarkAsDelivered(pkg.id)}>
