@@ -10,6 +10,7 @@ interface WebcamCaptureModalProps {
 
 const PINATA_API_KEY = process.env.NEXT_PUBLIC_PINATA_API_KEY
 const PINATA_API_SECRET = process.env.NEXT_PUBLIC_PINATA_API_SECRET
+const API_ENDPOINT = "http://192.168.167.131:8000/api/verify_package/";
 
 const WebcamCaptureModal: React.FC<WebcamCaptureModalProps> = ({
   isOpen,
@@ -17,6 +18,7 @@ const WebcamCaptureModal: React.FC<WebcamCaptureModalProps> = ({
 }) => {
   const webcamRef = useRef<Webcam>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [description, setDescription] = useState<string>("");
   const [uploading, setUploading] = useState<boolean>(false);
 
   const capture = () => {
@@ -69,10 +71,23 @@ const WebcamCaptureModal: React.FC<WebcamCaptureModalProps> = ({
 
       const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${pinataResponse.data.IpfsHash}`;
       alert(`Image uploaded to IPFS: ${ipfsUrl}`);
+
+      // Send to your API
+      const response = await axios.post(API_ENDPOINT, {
+        product_description: description,
+        image_url: ipfsUrl,
+      });
+
+      alert("Image and description submitted successfully!");
+      setUploading(false);
+      if (response.data.isValidPackage)
+        alert("The package is valid");
+      else
+        alert("The package is not valid");
+      onClose(); // Close modal after submission
     } catch (error) {
-      console.error("Error uploading to Pinata:", error);
-      alert("Failed to upload image.");
-    } finally {
+      console.error("Error uploading to Pinata or submitting data:", error);
+      alert("Failed to upload image or submit data.");
       setUploading(false);
     }
   };
@@ -120,6 +135,17 @@ const WebcamCaptureModal: React.FC<WebcamCaptureModalProps> = ({
           <div style={{ marginTop: "20px" }}>
             <h3>Captured Image:</h3>
             <img src={imageSrc} alt="Captured" style={{ width: "100%" }} />
+            <textarea
+              placeholder="Enter a description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              style={{
+                width: "100%",
+                marginTop: "10px",
+                padding: "10px",
+                borderRadius: "4px",
+              }}
+            ></textarea>
             <Button
               onClick={uploadToPinata}
               style={{ marginTop: "10px" }}
