@@ -61,11 +61,12 @@
 
 | **Component**  | **Technology**     |
 | -------------- | ------------------ |
+| **Web3 Wallet**| Okto               |
 | **IoT**        | RFID, Raspberry Pi |
 | **Backend**    | Django             |
 | **Web App**    | Next.js            |
 | **Mobile App** | Flutter            |
-| **Blockchain** | Base, Sui          |
+| **Blockchain** | Crosschain across Base + Sui|
 | **Middleware** | Node.js            |
 
 ---
