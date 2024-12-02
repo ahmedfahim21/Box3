@@ -108,17 +108,17 @@ export default function CustomerDashboard() {
   
       console.log(`Fetched RFID: ${rfidFromAPI}`);
   
-      const userData = await contract.getUserDetails(); // Update the Contract and add this function
-      const { rfidData } = userData;
+      // const userData = await contract.getUserDetails(); // Update the Contract and add this function
+      // const { rfidData } = userData;
   
-      console.log(`RFID from Contract: ${rfidData}`);
+      // console.log(`RFID from Contract: ${rfidData}`);
   
-      if (rfidFromAPI === rfidData) {
-        alert('RFID matched! Opening SmartBox...');
+      // if (rfidFromAPI === rfidData) {
+      //   alert('RFID matched! Opening SmartBox...');
         handleOpenBox(packageId); 
-      } else {
-        alert('RFID mismatch! Access denied.');
-      }
+      // } else {
+      //   alert('RFID mismatch! Access denied.');
+      // }
     } catch (error) {
       console.error('Error reading RFID or fetching user data:', error);
       alert('Error verifying RFID.');
